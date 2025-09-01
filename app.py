@@ -1,65 +1,58 @@
 import streamlit as st
 
-# ===== Helpers =====
+# --- Función para formatear números grandes con puntos ---
 def fmt_thousands(value, decimals=0):
     return f"{value:,.{decimals}f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
-def parse_local_number(value_str):
-    return float(value_str.replace(".", "").replace(",", "."))
+# --- Título ---
+st.title("Calculadora de Costo por Km")
 
-# ===== Cálculo =====
-def calcular_costo_km(fuel_efficiency, fuel_price, insurance_annual,
-                      maintenance_annual, tire_cost, tire_life_km,
-                      km_per_year, profit_margin):
-    fuel_cost_per_km = fuel_price / max(fuel_efficiency, 1e-9)
-    insurance_per_km = insurance_annual / max(km_per_year, 1.0)
-    maintenance_per_km = maintenance_annual / max(km_per_year, 1.0)
-    tires_per_km = tire_cost / max(tire_life_km, 1.0)
+# --- Inputs de usuario ---
+fuel_price = st.number_input("Precio del combustible (ARS por litro)", value=1000.0, step=50.0, format="%.2f")
+fuel_efficiency = st.number_input("Eficiencia de combustible (km por litro)", value=12.0, step=0.1, format="%.1f")
+insurance_annual = st.number_input("Seguro anual (ARS)", value=1200000.0, step=10000.0, format="%.0f")
+km_per_year = st.number_input("Kilómetros recorridos por año", value=30000, step=1000, format="%.0f")
+tire_cost = st.number_input("Costo de un juego de cubiertas (ARS)", value=400000.0, step=10000.0, format="%.0f")
+tire_life = st.number_input("Duración estimada de las cubiertas (km)", value=40000, step=5000, format="%.0f")
+service_cost = st.number_input("Costo de un service (ARS)", value=150000.0, step=10000.0, format="%.0f")
+service_interval = st.number_input("Intervalo de service (km)", value=10000, step=1000, format="%.0f")
 
-    total_cost_per_km = fuel_cost_per_km + insurance_per_km + maintenance_per_km + tires_per_km
-    return total_cost_per_km * (1 + profit_margin / 100.0)
+# Nuevo input: kilómetros del viaje
+viaje_km = st.number_input("Kilómetros del viaje (solo ida)", value=10, step=1, format="%.0f")
 
-# ===== Interfaz =====
-st.title("Calculadora de costo por kilómetro")
-
-fuel_efficiency = st.number_input("Eficiencia de combustible (km por litro)", min_value=1, value=12, step=1)
-fuel_price_str = st.text_input("Precio del combustible (ARS por litro)", value="1.200")
-insurance_yearly_str = st.text_input("Seguro anual (ARS)", value="1.200.000")
-maintenance_yearly_str = st.text_input("Mantenimiento anual (ARS)", value="600.000")
-tires_cost_str = st.text_input("Costo de un juego de cubiertas (ARS)", value="800.000")
-tires_life_km_str = st.text_input("Duración estimada de las cubiertas (km)", value="40.000")
-annual_km_str = st.text_input("Kilómetros recorridos por año", value="30.000")
-
-# ===== Nuevo input: distancia del viaje =====
-viaje_km = st.number_input("Distancia del viaje (km)", min_value=1, value=10, step=1)
-
+# Margen de ganancia como slider
 profit_margin = st.slider("Margen de ganancia (%)", min_value=0, max_value=100, value=30, step=1)
 
+# --- Cálculo del costo por km ---
+def calcular_costo_km():
+    # Costo combustible por km
+    fuel_cost_per_km = fuel_price / fuel_efficiency
+    
+    # Costo seguro por km
+    insurance_per_km = insurance_annual / km_per_year
+    
+    # Costo cubiertas por km
+    tire_per_km = tire_cost / tire_life
+    
+    # Costo service por km
+    service_per_km = service_cost / service_interval
+    
+    # Total costo por km
+    base_cost_per_km = fuel_cost_per_km + insurance_per_km + tire_per_km + service_per_km
+    
+    # Aplicar margen de ganancia
+    return base_cost_per_km * (1 + profit_margin / 100)
+
+# --- Botón para calcular ---
 if st.button("Calcular"):
-    fuel_price = parse_local_number(fuel_price_str)
-    insurance_annual = parse_local_number(insurance_yearly_str)
-    maintenance_annual = parse_local_number(maintenance_yearly_str)
-    tire_cost = parse_local_number(tires_cost_str)
-    tire_life_km = parse_local_number(tires_life_km_str)
-    km_per_year = parse_local_number(annual_km_str)
-
-    costo_km = calcular_costo_km(
-        fuel_efficiency,
-        fuel_price,
-        insurance_annual,
-        maintenance_annual,
-        tire_cost,
-        tire_life_km,
-        km_per_year,
-        float(profit_margin)
-    )
-
+    costo_km = calcular_costo_km()
+    
+    # Redondeos solo para mostrar
     costo_total = costo_km * viaje_km * 2  # ida + vuelta
+    costo_total_redondeado = round(costo_total)
+    costo_km_redondeado = round(costo_km)
 
-    st.success(f"Costo total del viaje (ida y vuelta, {viaje_km} km): ${fmt_thousands(costo_total, 0)}")
-
-    with st.expander("Ver desglose (por km)"):
-        st.write(f"Combustible por km: ${fmt_thousands(fuel_price / max(fuel_efficiency, 1e-9), 2)}")
-        st.write(f"Seguro por km: ${fmt_thousands(insurance_annual / max(km_per_year, 1.0), 2)}")
-        st.write(f"Mantenimiento por km: ${fmt_thousands(maintenance_annual / max(km_per_year, 1.0), 2)}")
-        st.write(f"Cubiertas por km: ${fmt_thousands(tire_cost / max(tire_life_km, 1.0), 2)}")
+    st.success(
+        f"Costo total del viaje (ida y vuelta, {viaje_km} km): ${fmt_thousands(costo_total_redondeado, 0)}. "
+        f"Costo por km: ${fmt_thousands(costo_km_redondeado, 0)}"
+    )
