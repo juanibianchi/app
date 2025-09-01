@@ -7,7 +7,7 @@ def fmt_thousands(value, decimals=0):
 # --- Título ---
 st.title("Calculadora de Costo por Km")
 
-# --- Inputs de usuario (se quedan crudos, sin formateo) ---
+# --- Inputs de usuario (sin formateo) ---
 fuel_price = st.number_input("Precio del combustible (ARS por litro)", value=1000.0, step=50.0)
 fuel_efficiency = st.number_input("Eficiencia de combustible (km por litro)", value=12.0, step=0.1)
 insurance_annual = st.number_input("Seguro anual (ARS)", value=1200000.0, step=10000.0)
@@ -17,10 +17,10 @@ tire_life = st.number_input("Duración estimada de las cubiertas (km)", value=40
 service_cost = st.number_input("Costo de un service (ARS)", value=150000.0, step=10000.0)
 service_interval = st.number_input("Intervalo de service (km)", value=10000, step=1000)
 
-# Nuevo input: kilómetros del viaje
+# --- Nuevo input: kilómetros del viaje ---
 viaje_km = st.number_input("Kilómetros del viaje (solo ida)", value=10, step=1)
 
-# Margen de ganancia como slider
+# --- Margen de ganancia como slider ---
 profit_margin = st.slider("Margen de ganancia (%)", min_value=0, max_value=100, value=30, step=1)
 
 # --- Cálculo del costo por km ---
