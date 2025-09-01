@@ -1,28 +1,32 @@
 import streamlit as st
 import math
 
-# ---- Configuración de página ----
 st.set_page_config(page_title="Calculadora de costos logísticos", layout="centered")
 
-# ---- Función para formatear números ----
-def format_number(n):
-    return f"{int(n):,}".replace(",", ".")
-
-# ---- Entradas ----
 st.title("🚚 Calculadora de costos logísticos")
 
 st.header("Parámetros de entrada")
 
+# --- Función para formatear con separador de miles ---
+def format_input(label, value, step=1000.0, min_value=0.0):
+    return st.number_input(
+        label,
+        min_value=min_value,
+        value=value,
+        step=step,
+        format="%.0f"  # evita decimales
+    )
+
 fuel_efficiency = st.number_input("Eficiencia de combustible (km por litro)", min_value=1.0, value=12.0, step=0.5)
-fuel_price = st.number_input("Precio del combustible (ARS por litro)", min_value=0.0, value=1000.0, step=50.0)
+fuel_price = format_input("Precio del combustible (ARS por litro)", 1000.0, step=50.0)
 
-insurance_annual = st.number_input("Seguro anual (ARS)", min_value=0.0, value=1_200_000.0, step=50_000.0)
-maintenance_annual = st.number_input("Mantenimiento anual (ARS)", min_value=0.0, value=600_000.0, step=50_000.0)
+insurance_annual = format_input("Seguro anual (ARS)", 1_200_000.0, step=50_000.0)
+maintenance_annual = format_input("Mantenimiento anual (ARS)", 600_000.0, step=50_000.0)
 
-tire_cost = st.number_input("Costo de las cubiertas (ARS)", min_value=0.0, value=800_000.0, step=50_000.0)
-tire_life_km = st.number_input("Duración estimada de las cubiertas (km)", min_value=1.0, value=40_000.0, step=1000.0)
+tire_cost = format_input("Costo de las cubiertas (ARS)", 800_000.0, step=50_000.0)
+tire_life_km = format_input("Duración estimada de las cubiertas (km)", 40_000.0, step=1000.0)
 
-km_per_year = st.number_input("Kilómetros recorridos por año", min_value=1.0, value=30_000.0, step=1000.0)
+km_per_year = format_input("Kilómetros recorridos por año", 30_000.0, step=1000.0)
 
 profit_margin = st.number_input("Margen de ganancia (%)", min_value=0.0, value=30.0, step=1.0)
 
@@ -44,10 +48,9 @@ def calcular_costo_km(
 
     total_cost_per_km = fuel_cost_per_km + insurance_per_km + maintenance_per_km + tire_per_km
 
-    # aplicar margen
     total_with_margin = total_cost_per_km * (1 + profit_margin / 100)
 
-    return math.ceil(total_with_margin)  # redondear para arriba
+    return math.ceil(total_with_margin)
 
 # ---- Botón Calcular ----
 if st.button("Calcular"):
@@ -62,10 +65,10 @@ if st.button("Calcular"):
         profit_margin
     )
 
-    st.success(f"Costo total por km: ${format_number(costo)} ARS")
+    st.success(f"Costo total por km: ${costo:,.0f}".replace(",", "."))
 
     with st.expander("Ver desglose"):
-        st.write(f"Combustible por km: ${format_number(round(fuel_price / fuel_efficiency))}")
-        st.write(f"Seguro por km: ${format_number(round(insurance_annual / km_per_year))}")
-        st.write(f"Mantenimiento por km: ${format_number(round(maintenance_annual / km_per_year))}")
-        st.write(f"Cubiertas por km: ${format_number(round(tire_cost / tire_life_km))}")
+        st.write(f"Combustible por km: ${fuel_price / fuel_efficiency:,.0f}".replace(",", "."))
+        st.write(f"Seguro por km: ${insurance_annual / km_per_year:,.0f}".replace(",", "."))
+        st.write(f"Mantenimiento por km: ${maintenance_annual / km_per_year:,.0f}".replace(",", "."))
+        st.write(f"Cubiertas por km: ${tire_cost / tire_life_km:,.0f}".replace(",", "."))
