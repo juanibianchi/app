@@ -7,7 +7,7 @@ def fmt_thousands(value, decimals=0):
 # --- Título ---
 st.title("Calculadora de Costo por Km")
 
-# --- Inputs de usuario ---
+# --- Inputs de usuario (se quedan crudos, sin formateo) ---
 fuel_price = st.number_input("Precio del combustible (ARS por litro)", value=1000.0, step=50.0)
 fuel_efficiency = st.number_input("Eficiencia de combustible (km por litro)", value=12.0, step=0.1)
 insurance_annual = st.number_input("Seguro anual (ARS)", value=1200000.0, step=10000.0)
@@ -53,6 +53,7 @@ if st.button("Calcular"):
     costo_km_redondeado = round(costo_km)
 
     st.success(
-        f"Costo total del viaje (ida y vuelta, {viaje_km} km): ${fmt_thousands(costo_total_redondeado, 0)}. "
-        f"Costo por km: ${fmt_thousands(costo_km_redondeado, 0)}"
+        f"**Costo total del viaje (ida y vuelta, {viaje_km} km):** "
+        f"${fmt_thousands(costo_total_redondeado, 0)}\n\n"
+        f"**Costo por km:** ${fmt_thousands(costo_km_redondeado, 0)}"
     )
