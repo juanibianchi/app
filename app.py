@@ -130,6 +130,6 @@ if st.button("Calcular"):
     total_trip_cost = cost_per_km_with_margin * km_viaje * 2
 
     st.success(
-        f"Costo total del viaje (ida y vuelta, {viaje_km} km): ${fmt_number(math.ceil(total_trip_cost))}\n\n"
+        f"Costo total del viaje (ida y vuelta, {km_viaje} km): ${fmt_number(math.ceil(total_trip_cost))}\n\n"
         f"Costo por km: ${fmt_number(math.ceil(cost_per_km_with_margin))}"
     )
