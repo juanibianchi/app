@@ -51,7 +51,6 @@ fuel_price = st.number_input(
     value=default_fuel_price,
     step=10.0,
     format="%.2f")
-)
 fuel_efficiency = st.number_input("Eficiencia de combustible (km por litro)", min_value=1.0, value=12.0, step=0.1, format="%.1f")
 
 # ---- Inputs grandes con separador de miles ----
