@@ -25,18 +25,94 @@ def number_input_with_format(label, default):
     return num_val
 
 
-def get_default_fuel_price():
-    try:
-        url = "https://www.ambito.com/contenidos/nafta.html"  # ejemplo, se puede ajustar
-        r = requests.get(url, timeout=5)
-        soup = BeautifulSoup(r.text, "html.parser")
-        
-        # acá dependerá del HTML real, pongo un selector de ejemplo:
-        price_text = soup.find("span", {"class": "price"}).text  
-        price = float(price_text.replace("$", "").replace(",", ".").strip())
-        return price
-    except:
-        return 1000.0  # fallback seguro si falla el scraping
+import re
+import requests
+try:
+    from bs4 import BeautifulSoup
+    _HAS_BS4 = True
+except Exception:
+    _HAS_BS4 = False
+
+def get_default_fuel_price() -> float:
+    """
+    Devuelve el precio por defecto del litro de nafta (ARS) para CABA,
+    scrapeando 2–3 fuentes públicas. Si no logra extraer un valor
+    plausible, retorna 1000.0 como fallback seguro.
+    """
+    # Fuentes a intentar (podés ajustar/ordenar)
+    SOURCES = [
+        "https://www.ambito.com/contenidos/nafta.html",
+        "https://www.iprofesional.com/tag/combustibles",   # notas con precios
+        "https://www.cronista.com/tags/combustibles/"      # idem
+    ]
+
+    # Palabras clave alrededor de las cuales buscar números
+    KEYWORDS = ("nafta super", "súper", "super", "nafta", "gasolina", "combustible")
+
+    # Rango plausible de ARS por litro (ajustable)
+    MIN_PLAUSIBLE = 200.0
+    MAX_PLAUSIBLE = 10000.0
+
+    HEADERS = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                      "(KHTML, like Gecko) Chrome/123.0 Safari/537.36"
+    }
+
+    def _to_float(num_str: str) -> float | None:
+        # normaliza formatos "1.200,50" -> "1200.50", "1200" -> "1200"
+        s = num_str.replace("\xa0", " ").replace(".", "").replace(",", ".")
+        m = re.search(r"(\d+(?:\.\d+)?)", s)
+        return float(m.group(1)) if m else None
+
+    def _plausible(x: float) -> bool:
+        return MIN_PLAUSIBLE <= x <= MAX_PLAUSIBLE
+
+    for url in SOURCES:
+        try:
+            r = requests.get(url, headers=HEADERS, timeout=6)
+            if r.status_code != 200 or not r.text:
+                continue
+            html = r.text
+
+            # 1) Intento con BeautifulSoup si está disponible
+            if _HAS_BS4:
+                soup = BeautifulSoup(html, "html.parser")
+                # Busca nodos que contengan alguna keyword
+                nodes = soup.find_all(string=re.compile("|".join(KEYWORDS), re.I))
+                for node in nodes:
+                    # Tomamos el texto del nodo + un poco de contexto
+                    ctx = " ".join([
+                        node.parent.get_text(" ", strip=True) if hasattr(node, "parent") else str(node)
+                    ])
+                    # números tipo $ 1.234,56 o 1234,56 o 1234
+                    m = re.search(r"\$?\s*([0-9][0-9\.\,]{2,})", ctx)
+                    if m:
+                        val = _to_float(m.group(1))
+                        if val and _plausible(val):
+                            return round(val, 2)
+
+            # 2) Fallback: regex directo sobre el HTML completo con keyword cerca
+            for m in re.finditer(
+                r"(nafta|súper|super|gasolina|combustible)[^$0-9]{0,60}\$?\s*([0-9][0-9\.\,]{2,})",
+                html,
+                flags=re.I,
+            ):
+                val = _to_float(m.group(2))
+                if val and _plausible(val):
+                    return round(val, 2)
+
+            # 3) Último intento: cualquier número con $ en la página (menos robusto)
+            for m in re.finditer(r"\$\s*([0-9][0-9\.\,]{2,})", html):
+                val = _to_float(m.group(1))
+                if val and _plausible(val):
+                    return round(val, 2)
+
+        except Exception:
+            # Si una fuente falla, seguimos con la próxima
+            continue
+
+    # Fallback definitivo si nada funcionó
+    return 1000.0
 
 default_fuel_price = get_default_fuel_price()
 
