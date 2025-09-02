@@ -1,61 +1,61 @@
 import streamlit as st
 import math
+import requests
+from bs4 import BeautifulSoup
 
-# ---------- Helpers ----------
-def fmt_number(num: float) -> str:
-    """Formatea un número con separador de miles (1.200.000)."""
-    return f"{int(num):,}".replace(",", ".")
+st.title("Calculadora de costos de envío")
 
-def parse_number(text: str) -> float:
-    """Convierte texto con puntos de miles a número float."""
-    return float(text.replace(".", "").replace(",", "."))
-
-def number_input_with_format(label, default):
-    """Crea un text_input que muestra números con separador de miles y mantiene el valor numérico."""
-    key = label.replace(" ", "_")
-    text_val = st.text_input(label, value=st.session_state.get(key, fmt_number(default)))
+# Función para obtener precio de nafta desde Surtidores.com.ar
+def fetch_fuel_price():
     try:
-        num_val = parse_number(text_val)
-        # Re-formatear en session_state para que quede lindo
-        st.session_state[key] = fmt_number(num_val)
-    except ValueError:
-        num_val = default
-    return num_val
+        resp = requests.get("https://www.surtidores.com.ar/precios/")
+        soup = BeautifulSoup(resp.text, "html.parser")
+        # Busca "Nafta Super" o similar y extrae el siguiente valor
+        cell = soup.find("td", string=lambda s: "Super" in s)
+        if cell:
+            price_str = cell.find_next_sibling("td").text
+            price = float(price_str.replace("$", "").replace(".", "").strip())
+            return price
+    except Exception:
+        pass
+    return None
 
-# ---------- Inputs ----------
-st.title("Calculadora de costos logísticos")
+# Intentar obtener precio real
+default_price = fetch_fuel_price()
+if default_price is None:
+    default_price = 1334.0  # valor de respaldo (septiembre 2025)
 
-viaje_km = st.number_input("Kilómetros del viaje (solo ida)", min_value=1, value=10)
+fuel_price = st.number_input(
+    "Precio del combustible por litro (ARS)",
+    min_value=0.0,
+    value=default_price,
+    step=1.0,
+    format="%.0f"
+)
 
-fuel_price = st.number_input("Precio del combustible por litro (ARS)", min_value=0.0, value=800.0, step=10.0, format="%.2f")
-fuel_efficiency = st.number_input("Eficiencia de combustible (km por litro)", min_value=1.0, value=12.0, step=0.1, format="%.1f")
+fuel_efficiency = st.number_input("Rendimiento del vehículo (km por litro)", min_value=1.0, value=12.0, step=0.1)
+tire_cost = st.number_input("Costo total de cubiertas (ARS)", min_value=0.0, value=1200000.0, step=1000.0, format="%.0f")
+tire_life = st.number_input("Duración esperada de cubiertas (km)", min_value=1.0, value=60000, step=1000)
+service_cost = st.number_input("Costo de cada service (ARS)", min_value=0.0, value=200000.0, step=1000.0, format="%.0f")
+service_interval = st.number_input("Intervalo entre services (km)", min_value=1.0, value=10000, step=500)
+insurance_cost = st.number_input("Seguro anual (ARS)", min_value=0.0, value=1200000.0, step=1000.0, format="%.0f")
+annual_km = st.number_input("Km recorridos por año", min_value=1, value=60000, step=1000, format="%.0f")
+margin = st.slider("Margen de ganancia (%)", min_value=0, max_value=100, value=30, step=1)
+trip_km = st.number_input("Kilómetros del viaje (sólo ida)", min_value=1, value=10, step=1, format="%.0f")
 
-# ---- Inputs grandes con separador de miles ----
-seguro_anual = number_input_with_format("Seguro anual (ARS)", 1200000)
-service_cost = number_input_with_format("Costo del service (ARS)", 150000)
-service_km = st.number_input("Frecuencia del service (km)", min_value=1000, value=10000, step=500)
+# Cálculos
+fuel_cost_per_km = fuel_price / fuel_efficiency
+tire_cost_per_km = tire_cost / tire_life
+service_cost_per_km = service_cost / service_interval
+insurance_cost_per_km = insurance_cost / annual_km
 
-cubiertas_cost = number_input_with_format("Costo de un juego de cubiertas (ARS)", 400000)
-cubiertas_km = st.number_input("Duración estimada de las cubiertas (km)", min_value=1000, value=40000, step=1000)
+cost_per_km = fuel_cost_per_km + tire_cost_per_km + service_cost_per_km + insurance_cost_per_km
+cost_per_km_with_margin = cost_per_km * (1 + margin / 100)
 
-km_anuales = st.number_input("Kilómetros recorridos por año", min_value=1000, value=30000, step=1000)
+# Costo total ida y vuelta
+total_trip_cost = cost_per_km_with_margin * trip_km * 2
 
-profit_margin = st.slider("Margen de ganancia (%)", min_value=0, max_value=100, value=30)
-
-# ---------- Cálculo ----------
-if st.button("Calcular"):
-    insurance_per_km = seguro_anual / km_anuales
-    service_per_km = service_cost / service_km
-    tires_per_km = cubiertas_cost / cubiertas_km
-
-    fuel_per_km = fuel_price / fuel_efficiency
-
-    cost_per_km = insurance_per_km + service_per_km + tires_per_km + fuel_per_km
-    cost_per_km_with_margin = cost_per_km * (1 + profit_margin / 100)
-
-    total_trip_cost = cost_per_km_with_margin * viaje_km * 2
-
-    st.success(
-        f"Costo total del viaje (ida y vuelta, {viaje_km} km): ${fmt_number(math.ceil(total_trip_cost))}\n\n"
-        f"Costo por km: ${fmt_number(math.ceil(cost_per_km_with_margin))}"
-    )
+# Mostrar resultados formateados
+st.subheader("Resultado")
+st.write(f"Costo total del viaje (ida y vuelta, {trip_km} km): ${math.ceil(total_trip_cost):,}".replace(",", "."))
+st.write(f"**Costo por km:** ${math.ceil(cost_per_km_with_margin):,}".replace(",", "."))
