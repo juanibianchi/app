@@ -2,9 +2,26 @@ import streamlit as st
 import math
 import requests
 import re
-from bs4 import BeautifulSoup
+import googlemaps
+
+# -----------------------
+# CONFIG GOOGLE MAPS API
+# -----------------------
+gmaps = googlemaps.Client(key=st.secrets["GOOGLE_MAPS_API_KEY"])
 
 # ---------- Helpers ----------
+
+# -----------------------
+# FUNCIÓN PARA DISTANCIA
+# -----------------------
+def calcular_distancia(origen, destino):
+    try:
+        result = gmaps.distance_matrix(origen, destino, mode="driving", region="ar")
+        distancia_metros = result["rows"][0]["elements"][0]["distance"]["value"]
+        return distancia_metros / 1000  # en km
+    except Exception:
+        return None
+
 def fmt_number(num: float) -> str:
     """Formatea un número con separador de miles (1.200.000)."""
     return f"{int(num):,}".replace(",", ".")
@@ -58,7 +75,26 @@ default_fuel_price = get_default_fuel_price()
 # ---------- Inputs ----------
 st.title("Calculadora de costos logísticos")
 
-viaje_km = st.number_input("Kilómetros del viaje (solo ida)", min_value=1, value=10)
+# -----------------------
+# INPUTS DE DISTANCIA
+# -----------------------
+st.subheader("Distancia del viaje")
+
+# Opción 1: Ingresar km directamente
+km_manual = st.number_input("Kilómetros del viaje (solo ida)", value=10.0, step=1.0)
+
+# Opción 2: Ingresar dirección
+direccion_destino = st.text_input("Ingresá una dirección en CABA (opcional):")
+deposito = "Baez 626, Palermo, CABA, Argentina"  # origen fijo
+
+km_viaje = km_manual  # default: lo que ingresa el usuario
+if direccion_destino:
+    km_calculado = calcular_distancia(deposito, direccion_destino)
+    if km_calculado:
+        km_viaje = km_calculado
+        st.success(f"Distancia estimada desde el depósito hasta '{direccion_destino}': {km_viaje:.1f} km")
+    else:
+        st.error("No se pudo calcular la distancia, se usará el valor manual.")
 
 fuel_price = st.number_input(
     "Precio del combustible por litro (ARS)",
@@ -91,7 +127,7 @@ if st.button("Calcular"):
     cost_per_km = insurance_per_km + service_per_km + tires_per_km + fuel_per_km
     cost_per_km_with_margin = cost_per_km * (1 + profit_margin / 100)
 
-    total_trip_cost = cost_per_km_with_margin * viaje_km * 2
+    total_trip_cost = cost_per_km_with_margin * km_viaje * 2
 
     st.success(
         f"Costo total del viaje (ida y vuelta, {viaje_km} km): ${fmt_number(math.ceil(total_trip_cost))}\n\n"
